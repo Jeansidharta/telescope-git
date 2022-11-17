@@ -10,8 +10,23 @@ This was created because I felt the default telescope git integrations were a li
 
 ## Install
 
-### Packer
+You can use your favorite plugin manager. Some examples:
 
-Add this to your Packer configuration:
+- Packer: `use { 'Jeansidharta/telescope-git' }`
+- Vim plug: `Plug 'Jeansidharta/telescope-git'`
 
-`use { 'Jeansidharta/telescope-git' }`
+After that, don't forget to add this extension to Telescope, using the command
+
+```
+require('telescope').load_extension('telescope_git')
+```
+
+### Configuration
+
+There are currently no configuration options
+
+### Usage
+
+The following commands are available:
+
+- `Telescope telescope_git all_branches`: Lists all branches of the current buffer.
