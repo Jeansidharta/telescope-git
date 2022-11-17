@@ -215,6 +215,4 @@ M.all_branches = function(opts)
 	picker:find()
 end
 
-M.all_branches()
-
 return M

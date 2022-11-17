@@ -3,6 +3,6 @@ return require("telescope").register_extension({
 		-- access extension config and user config
 	end,
 	exports = {
-		all_branches = require("telescope-git").all_branches,
+		all_branches = require("telescope_git").all_branches,
 	},
 })
