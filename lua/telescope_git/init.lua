@@ -5,6 +5,7 @@ local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 local finders = require("telescope.finders")
 local conf = require("telescope.config").values
+local notify = require("notify")
 
 local M = {}
 
@@ -58,13 +59,17 @@ function previewer_jump_to_branch(bufnr, entry)
 	end)
 end
 
+function get_cwd_of_bufnr(bufnr)
+	vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
+end
+
 --- @param format_type string
-function make_git_graph(format_type)
+function make_git_graph(current_user_buffernr, format_type)
 	--- @type string
 	return Job:new({
 		command = "git",
 		args = { "log", "--graph", "--all", "--decorate", "--format=format: " .. format_type },
-		cwd = "/home/sidharta/projects/predify/Predify_Front_V3_old",
+		cwd = get_cwd_of_bufnr(current_user_buffernr),
 	}):sync()
 end
 
@@ -73,6 +78,8 @@ vim.api.nvim_set_hl(0, "Telescope_CurrentBranch", { fg = "#aaff00" })
 M.all_branches = function(opts)
 	opts = opts or {}
 
+	local current_user_buffernr = vim.api.nvim_win_get_buf(0)
+
 	--- @type boolean
 	local has_set_previewer = false
 
@@ -80,7 +87,7 @@ M.all_branches = function(opts)
 	local git_branches = Job:new({
 		command = "git",
 		args = { "branch", "--all" },
-		cwd = "/home/sidharta/projects/predify/Predify_Front_V3_old",
+		cwd = get_cwd_of_bufnr(current_user_buffernr),
 	}):sync()
 
 	--- Git branches treated
@@ -177,8 +184,7 @@ M.all_branches = function(opts)
 				local bufnr = self.state.bufnr
 				previewer_bufnr = bufnr
 				if not has_set_previewer then
-					local format = get_format()
-					local graph = make_git_graph(format)
+					local graph = make_git_graph(current_user_buffernr, get_format())
 					vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, graph)
 					set_branches_previewer_highlights(bufnr)
 					has_set_previewer = true
@@ -196,7 +202,7 @@ M.all_branches = function(opts)
 			end)
 
 			function switch_previewer_info()
-				local graph = make_git_graph(get_format())
+				local graph = make_git_graph(current_user_buffernr, get_format())
 				vim.api.nvim_buf_set_lines(previewer_bufnr, 0, -1, false, graph)
 			end
 
@@ -208,5 +214,7 @@ M.all_branches = function(opts)
 
 	picker:find()
 end
+
+M.all_branches()
 
 return M
