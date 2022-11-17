@@ -6,6 +6,8 @@ local action_state = require("telescope.actions.state")
 local finders = require("telescope.finders")
 local conf = require("telescope.config").values
 
+local M = {}
+
 --- Maps a function over an iterable table
 --- @param tbl table The table that will be iterated over
 --- @param f fun(key: any): any The function that will be aplied over all items of the table
@@ -68,7 +70,7 @@ end
 
 vim.api.nvim_set_hl(0, "Telescope_CurrentBranch", { fg = "#aaff00" })
 
-local colors = function(opts)
+M.all_branches = function(opts)
 	opts = opts or {}
 
 	--- @type boolean
@@ -207,5 +209,4 @@ local colors = function(opts)
 	picker:find()
 end
 
--- to execute the function
-colors()
+return M

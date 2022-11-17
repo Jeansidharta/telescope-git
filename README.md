@@ -4,7 +4,8 @@ This was created because I felt the default telescope git integrations were a li
 
 ## Requirements
 
-- [git](https://git-scm.com/)
+- [Telescope](https://github.com/nvim-telescope)
+- [Git](https://git-scm.com/) instaled in your system
 - [plenary](https://github.com/nvim-lua/plenary.nvim)
 
 ## Install
