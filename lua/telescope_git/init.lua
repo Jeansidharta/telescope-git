@@ -5,7 +5,6 @@ local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 local finders = require("telescope.finders")
 local conf = require("telescope.config").values
-local notify = require("notify")
 
 local M = {}
 
@@ -63,14 +62,43 @@ function get_cwd_of_bufnr(bufnr)
 	vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
 end
 
+--- @param current_user_buffernr number
 --- @param format_type string
+--- @return string[] | nil
 function make_git_graph(current_user_buffernr, format_type)
-	--- @type string
-	return Job:new({
+	local job = Job:new({
 		command = "git",
 		args = { "log", "--graph", "--all", "--decorate", "--format=format: " .. format_type },
 		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	}):sync()
+	})
+
+	local result, code = job:sync()
+
+	if code ~= 0 then
+		vim.notify(table.concat(job:stderr_result(), "\n"), "error")
+		return nil
+	end
+
+	return result
+end
+
+--- @param current_user_buffernr number
+--- @return string[] | nil
+function get_git_branches(current_user_buffernr)
+	local job = Job:new({
+		command = "git",
+		args = { "branch", "--all" },
+		cwd = get_cwd_of_bufnr(current_user_buffernr),
+	})
+
+	local result, code = job:sync()
+
+	if code ~= 0 then
+		vim.notify(table.concat(job:stderr_result(), "\n"), "error")
+		return nil
+	end
+
+	return result
 end
 
 vim.api.nvim_set_hl(0, "Telescope_CurrentBranch", { fg = "#aaff00" })
@@ -79,16 +107,12 @@ M.all_branches = function(opts)
 	opts = opts or {}
 
 	local current_user_buffernr = vim.api.nvim_win_get_buf(0)
-
-	--- @type boolean
 	local has_set_previewer = false
+	local git_branches = get_git_branches(current_user_buffernr)
 
-	--- @type string[]
-	local git_branches = Job:new({
-		command = "git",
-		args = { "branch", "--all" },
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	}):sync()
+	if not git_branches then
+		return
+	end
 
 	--- Git branches treated
 	--- @type { branch_name: string, remote: string | nil, is_current_branch: boolean, tracked: boolean | nil }[]
@@ -185,6 +209,9 @@ M.all_branches = function(opts)
 				previewer_bufnr = bufnr
 				if not has_set_previewer then
 					local graph = make_git_graph(current_user_buffernr, get_format())
+					if not graph then
+						return
+					end
 					vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, graph)
 					set_branches_previewer_highlights(bufnr)
 					has_set_previewer = true
@@ -203,6 +230,9 @@ M.all_branches = function(opts)
 
 			function switch_previewer_info()
 				local graph = make_git_graph(current_user_buffernr, get_format())
+				if not graph then
+					return
+				end
 				vim.api.nvim_buf_set_lines(previewer_bufnr, 0, -1, false, graph)
 			end
 
