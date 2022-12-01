@@ -2,6 +2,10 @@ local Job = require("plenary.job")
 
 local M = {}
 
+function get_cwd_of_bufnr(bufnr)
+	return vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
+end
+
 function sync_job_with_error_notify(job)
 	local result, code = job:sync()
 
@@ -126,6 +130,20 @@ M.delete_branch =
 		local job = Job:new({
 			command = "git",
 			args = { "branch", "--delete", branch_name },
+			cwd = get_cwd_of_bufnr(current_user_buffernr),
+		})
+
+		return sync_job_with_error_notify(job) ~= nil
+	end
+
+M.delete_remote_branch =
+	--- @param branch_name number
+	--- @param current_user_buffernr number
+	--- @return boolean
+	function(current_user_buffernr, branch_name)
+		local job = Job:new({
+			command = "git",
+			args = { "push", "--delete", branch_name },
 			cwd = get_cwd_of_bufnr(current_user_buffernr),
 		})
 

@@ -6,44 +6,9 @@ local finders = require("telescope.finders")
 local conf = require("telescope.config").values
 local git = require("telescope_git.git")
 
+local map_filter_non_null = require("telescope_git.utils").map_filter_non_null
+
 local M = {}
-
---- @alias GitBranchEntry { branch_name: string, remote: string | nil, is_current_branch: boolean, is_local_branch: boolean, is_remote_branch: boolean }
-
---- Maps a function over an iterable table
---- @generic T
---- @generic R
---- @param tbl T[] The table that will be iterated over
---- @param f fun(key: T): R The function that will be aplied over all items of the table
---- @return R[] A table
-function map(tbl, f)
-	local t = {}
-	for k, v in pairs(tbl) do
-		t[k] = f(v)
-	end
-	return t
-end
-
---- Filters an iterable table using the provided function
---- @generic T
---- @param tbl T[]
---- @param f fun(key: T): boolean The filter function. Will be executed on every table item. If this function returns true, the item will be kept. Otherwise, it'll be ignored
---- @return T[]
-function filter(tbl, f)
-	local t = {}
-	for _, v in pairs(tbl) do
-		if f(v) then
-			table.insert(t, v)
-		end
-	end
-	return t
-end
-
-function map_filter_non_null(tbl, map_fn)
-	return filter(map(tbl, map_fn), function(item)
-		return item
-	end)
-end
 
 --- Creates highlights for the branches previewer
 --- @param bufnr number The number of the preview buffer
@@ -81,10 +46,6 @@ function previewer_jump_to_branch(bufnr, entry)
 		vim.cmd("normal 0") -- Go to the start of the line
 		vim.cmd("normal " .. branch_line .. "G")
 	end)
-end
-
-function get_cwd_of_bufnr(bufnr)
-	return vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
 end
 
 function get_git_branches_and_parse_them(current_user_buffernr)
