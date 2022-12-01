@@ -1,11 +1,10 @@
 local pickers = require("telescope.pickers")
 local previewers = require("telescope.previewers")
-local Job = require("plenary.job")
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 local finders = require("telescope.finders")
 local conf = require("telescope.config").values
-local notify = require("notify")
+local git = require("telescope_git.git")
 
 local M = {}
 
@@ -88,130 +87,8 @@ function get_cwd_of_bufnr(bufnr)
 	return vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
 end
 
-function sync_job_with_error_notify(job)
-	local result, code = job:sync()
-
-	if code ~= 0 then
-		vim.notify(table.concat(job:stderr_result(), "\n"), "error")
-		return nil
-	end
-
-	return result
-end
-
---- @param current_user_buffernr number
---- @param format_type string
---- @return string[] | nil
-function make_git_graph(current_user_buffernr, format_type)
-	local job = Job:new({
-		command = "git",
-		args = { "log", "--graph", "--all", "--decorate", "--format=format: " .. format_type },
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	})
-
-	return sync_job_with_error_notify(job)
-end
-
---- @param current_user_buffernr number
---- @return string[] | nil
-function get_git_branches(current_user_buffernr)
-	local job = Job:new({
-		command = "git",
-		args = { "branch", "--all" },
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	})
-
-	return sync_job_with_error_notify(job)
-end
-
---- @param current_user_buffernr number
---- @param branch_name number
---- @return boolean
-function git_checkout(current_user_buffernr, branch_name)
-	local job = Job:new({
-		command = "git",
-		args = { "checkout", branch_name },
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	})
-
-	return sync_job_with_error_notify(job) ~= nil
-end
-
---- @param current_user_buffernr number
---- @param branch_name number
---- @return boolean
-function git_merge(current_user_buffernr, branch_name)
-	local job = Job:new({
-		command = "git",
-		args = { "merge", branch_name },
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	})
-
-	return sync_job_with_error_notify(job) ~= nil
-end
-
---- @param current_user_buffernr number
---- @param branch_name number
---- @param mode "soft" | "hard"
---- @return boolean
-function git_reset(current_user_buffernr, branch_name, mode)
-	local args = { "reset" }
-
-	if mode == "hard" then
-		table.insert(args, "--hard")
-	end
-
-	table.insert(args, branch_name)
-
-	local job = Job:new({
-		command = "git",
-		args = args,
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	})
-
-	return sync_job_with_error_notify(job) ~= nil
-end
-
---- @param branch_name number
---- @param current_user_buffernr number
---- @return boolean
-function git_create_branch(current_user_buffernr, branch_name)
-	local job = Job:new({
-		command = "git",
-		args = { "branch", branch_name },
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	})
-
-	return sync_job_with_error_notify(job) ~= nil
-end
-
---- @param current_user_buffernr number
---- @return boolean
-function git_fetch(current_user_buffernr)
-	local job = Job:new({
-		command = "git",
-		args = { "fetch", "--prune" },
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	})
-
-	return sync_job_with_error_notify(job) ~= nil
-end
-
---- @param branch_name number
---- @param current_user_buffernr number
---- @return boolean
-function git_delete_branch(current_user_buffernr, branch_name)
-	local job = Job:new({
-		command = "git",
-		args = { "branch", "--delete", branch_name },
-		cwd = get_cwd_of_bufnr(current_user_buffernr),
-	})
-
-	return sync_job_with_error_notify(job) ~= nil
-end
-
 function get_git_branches_and_parse_them(current_user_buffernr)
-	local git_branches = get_git_branches(current_user_buffernr)
+	local git_branches = git.get_branches(current_user_buffernr)
 
 	local seen_branches = {}
 	return map_filter_non_null(
@@ -360,7 +237,7 @@ M.all_branches = function(opts)
 				local bufnr = self.state.bufnr
 				previewer_bufnr = bufnr
 				if not has_set_previewer then
-					local graph = make_git_graph(current_user_buffernr, get_next_format())
+					local graph = git.make_graph(current_user_buffernr, get_next_format())
 					if not graph then
 						return
 					end
@@ -388,7 +265,7 @@ M.all_branches = function(opts)
 			end
 
 			function refresh_previewer()
-				local graph = make_git_graph(current_user_buffernr, get_current_format())
+				local graph = git.make_graph(current_user_buffernr, get_current_format())
 				if not graph then
 					return
 				end
@@ -403,7 +280,7 @@ M.all_branches = function(opts)
 
 			function checkout()
 				local selection = action_state.get_selected_entry().value
-				if git_checkout(current_user_buffernr, selection.branch_name) then
+				if git.checkout(current_user_buffernr, selection.branch_name) then
 					vim.notify("Checkout to " .. selection.branch_name .. " successful")
 				else
 					return
@@ -416,7 +293,7 @@ M.all_branches = function(opts)
 				local selection = action_state.get_selected_entry().value
 
 				ask_yes_no_confirmation("Are you sure you want to merge? (y/n)", "Merge canceled", function()
-					if not git_merge(current_user_buffernr, selection.branch_name) then
+					if not git.merge(current_user_buffernr, selection.branch_name) then
 						return
 					end
 
@@ -431,7 +308,7 @@ M.all_branches = function(opts)
 				function reset_branch()
 					local selection = action_state.get_selected_entry().value
 					ask_yes_no_confirmation("Are you sure you want to reset? (y/n)", "Reset canceled", function()
-						if not git_reset(current_user_buffernr, selection.branch_name, mode) then
+						if not git.reset(current_user_buffernr, selection.branch_name, mode) then
 							return
 						end
 
@@ -452,7 +329,7 @@ M.all_branches = function(opts)
 						return
 					end
 
-					if not git_create_branch(current_user_buffernr, input) then
+					if not git.create_branch(current_user_buffernr, input) then
 						return
 					end
 					vim.notify("Created branch named " .. input)
@@ -468,7 +345,7 @@ M.all_branches = function(opts)
 					[[Are you sure you want to delete branch "]] .. selection.branch_name .. [["? (y/n)]],
 					"Deletion canceled",
 					function()
-						if not git_delete_branch(current_user_buffernr, selection.branch_name) then
+						if not git.delete_branch(current_user_buffernr, selection.branch_name) then
 							return
 						end
 
