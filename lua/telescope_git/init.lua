@@ -172,12 +172,38 @@ function git_reset(current_user_buffernr, branch_name, mode)
 	return sync_job_with_error_notify(job) ~= nil
 end
 
+--- @param branch_name number
+--- @param current_user_buffernr number
+--- @return boolean
+function git_create_branch(current_user_buffernr, branch_name)
+	local job = Job:new({
+		command = "git",
+		args = { "branch", branch_name },
+		cwd = get_cwd_of_bufnr(current_user_buffernr),
+	})
+
+	return sync_job_with_error_notify(job) ~= nil
+end
+
 --- @param current_user_buffernr number
 --- @return boolean
 function git_fetch(current_user_buffernr)
 	local job = Job:new({
 		command = "git",
 		args = { "fetch", "--prune" },
+		cwd = get_cwd_of_bufnr(current_user_buffernr),
+	})
+
+	return sync_job_with_error_notify(job) ~= nil
+end
+
+--- @param branch_name number
+--- @param current_user_buffernr number
+--- @return boolean
+function git_delete_branch(current_user_buffernr, branch_name)
+	local job = Job:new({
+		command = "git",
+		args = { "branch", "--delete", branch_name },
 		cwd = get_cwd_of_bufnr(current_user_buffernr),
 	})
 
@@ -372,6 +398,7 @@ M.all_branches = function(opts)
 			function switch_previewer_info()
 				get_next_format()
 				refresh_picker()
+				refresh_previewer()
 			end
 
 			function checkout()
@@ -416,10 +443,51 @@ M.all_branches = function(opts)
 				return reset_branch
 			end
 
+			function new_branch()
+				vim.ui.input({
+					prompt = "Create new branch",
+				}, function(input)
+					if not input or #input == 0 then
+						vim.notify("Canceled branch creation", vim.log.levels.WARN)
+						return
+					end
+
+					if not git_create_branch(current_user_buffernr, input) then
+						return
+					end
+					vim.notify("Created branch named " .. input)
+					refresh_previewer()
+					refresh_picker()
+				end)
+			end
+
+			function delete_branch()
+				local selection = action_state.get_selected_entry().value
+
+				ask_yes_no_confirmation(
+					[[Are you sure you want to delete branch "]] .. selection.branch_name .. [["? (y/n)]],
+					"Deletion canceled",
+					function()
+						if not git_delete_branch(current_user_buffernr, selection.branch_name) then
+							return
+						end
+
+						vim.notify([["Successfuly deleted branch "]] .. selection.branch_name .. [[".]])
+
+						refresh_previewer()
+						refresh_picker()
+					end
+				)
+			end
+
 			mapping("i", "<C-s>", switch_previewer_info)
 			mapping("n", "<C-s>", switch_previewer_info)
 			mapping("i", "<C-c>", checkout)
 			mapping("n", "<C-c>", checkout)
+			mapping("i", "<C-n>", new_branch)
+			mapping("n", "<C-n>", new_branch)
+			mapping("i", "<C-x>", delete_branch)
+			mapping("n", "<C-x>", delete_branch)
 			mapping("i", "<C-m>", merge)
 			mapping("n", "<C-m>", merge)
 			mapping("i", "<C-r>s", reset("soft"))
